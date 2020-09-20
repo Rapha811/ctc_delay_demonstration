@@ -8,18 +8,23 @@ using namespace std;
 bool build_cn_and_contract(const IntervalVector& box_a, // emission position
                            IntervalVector& box_b, // emission position
                            const Interval& sea_bounds, // sea levels (surface+seabed)
+                           const std::vector<IntervalVector>& tdoa_subpaving_in,
                            const IntervalVector& tdoa_in,
-                           const Interval speed)
+                           const Interval speed,
+                           bool use_subpaving)
 {
 
     // Domains
 
-    IntervalVector tdoa (tdoa_in);
-    IntervalVector box_a_ (box_a);
-
     Interval sea_bounds_ub = sea_bounds.ub();
     Interval sea_bounds_lb = sea_bounds.lb();
 
+    std::vector<IntervalVector> tdoa_vec;
+    if(use_subpaving){
+        tdoa_vec = tdoa_subpaving_in;
+    } else {
+        tdoa_vec.push_back(tdoa_in);
+    }
 
     // Defining custom-built contractors:
 
@@ -35,39 +40,42 @@ bool build_cn_and_contract(const IntervalVector& box_a, // emission position
     Function relative_distance1(a, b, surface, tdoa_var, reflected_distance(a,b,surface) - direct_distance(a,b) - tdoa_var*speed);
     Function relative_distance2(a, b, surface1, surface2, tdoa_var, reflected_distance(a,b,surface1) - reflected_distance(a,b,surface2) - tdoa_var*speed);
 
-    Variable tdoa_var_array(3);
-    Function f1_1(a, b, tdoa_var_array, relative_distance1(a,b,sea_bounds_ub,tdoa_var_array[0]));
-    Function f1_2(a, b, tdoa_var_array, relative_distance1(a,b,sea_bounds_ub,tdoa_var_array[1]));
-    CtcFunction ctc1_1(f1_1);
-    CtcFunction ctc1_2(f1_2);
-    CtcUnion ctc1 (ctc1_1,ctc1_2);
+    IntervalVector box_b_out(2, Interval::EMPTY_SET);
 
-    Function f2_1(a, b, tdoa_var_array, relative_distance1(a,b,sea_bounds_lb,tdoa_var_array[0]));
-    Function f2_2(a, b, tdoa_var_array, relative_distance1(a,b,sea_bounds_lb,tdoa_var_array[1]));
-    CtcFunction ctc2_1(f2_1);
-    CtcFunction ctc2_2(f2_2);
-    CtcUnion ctc2 (ctc2_1,ctc2_2);
+    for (size_t i = 0; i < tdoa_vec.size(); ++i) {
 
-    Function f3_1(a, b, tdoa_var_array, relative_distance2(a,b,sea_bounds_lb,sea_bounds_ub,tdoa_var_array[2]));
-    Function f3_2(a, b, tdoa_var_array, relative_distance2(a,b,sea_bounds_ub,sea_bounds_lb,tdoa_var_array[2]));
-    CtcFunction ctc3_1(f3_1);
-    CtcFunction ctc3_2(f3_2);
-    CtcUnion ctc3 (ctc3_1,ctc3_2);
+        IntervalVector tdoa_cur (tdoa_vec[i]);
 
+        Function f1_1(b, relative_distance1(box_a,b,sea_bounds_ub,tdoa_cur[0]));
+        Function f1_2(b, relative_distance1(box_a,b,sea_bounds_ub,tdoa_cur[1]));
+        CtcFunction ctc1_1(f1_1);
+        CtcFunction ctc1_2(f1_2);
+        CtcUnion ctc1 (ctc1_1,ctc1_2);
 
-    // Solver
+        Function f2_1(b, relative_distance1(box_a,b,sea_bounds_lb,tdoa_cur[0]));
+        Function f2_2(b, relative_distance1(box_a,b,sea_bounds_lb,tdoa_cur[1]));
+        CtcFunction ctc2_1(f2_1);
+        CtcFunction ctc2_2(f2_2);
+        CtcUnion ctc2 (ctc2_1,ctc2_2);
 
-    ContractorNetwork cn;
-    cn.set_fixedpoint_ratio(0.1);
+        Function f3_1(b, relative_distance2(box_a,b,sea_bounds_lb,sea_bounds_ub,tdoa_cur[2]));
+        Function f3_2(b, relative_distance2(box_a,b,sea_bounds_ub,sea_bounds_lb,tdoa_cur[2]));
+        CtcFunction ctc3_1(f3_1);
+        CtcFunction ctc3_2(f3_2);
+        CtcUnion ctc3 (ctc3_1,ctc3_2);
 
-    cn.add(ctc1, {box_a_, box_b, tdoa});
-    cn.add(ctc2, {box_a_, box_b, tdoa});
-    cn.add(ctc3, {box_a_, box_b, tdoa});
+        CtcCompo ctc_compo(ctc1, ctc2, ctc3);
+        CtcFixPoint ctc_fix (ctc_compo, 0.1);
 
-    cn.contract(false); // use 'true' for verbose mode
+        IntervalVector box_b_ (box_b);
+        ctc_fix.contract(box_b_);
 
-    return cn.emptiness();
+        box_b_out |= box_b_;
 
+    }
+
+    box_b = box_b_out;
+    return box_b.is_empty();
 }
 
 
@@ -75,13 +83,15 @@ void TdoaLocalizationPaving::compute(const IntervalVector& box_a, // emission po
                                      const Interval& sea_bounds, // sea levels (surface+seabed)
                                      const Interval speed,
                                      float precision, // SIVIA precision
-                                     VIBesFigMap& fig_map,
-                                     const IntervalVector &tdoa_in) // for graphics
+                                     VIBesFigMap& fig_map, // for graphics
+                                     const std::vector<IntervalVector>& tdoa_subpaving_in,
+                                     const IntervalVector& tdoa_in,
+                                     bool use_subpaving)
 {
 
     IntervalVector box_b = box();
 
-    bool emptiness = build_cn_and_contract(box_a, box_b, sea_bounds, tdoa_in, speed);
+    bool emptiness = build_cn_and_contract(box_a, box_b, sea_bounds, tdoa_subpaving_in, tdoa_in, speed, use_subpaving);
 
     // SIVIA
 
@@ -94,14 +104,14 @@ void TdoaLocalizationPaving::compute(const IntervalVector& box_a, // emission po
     else if(box().max_diam() < precision)
     {
         set_value(SetValue::MAYBE);
-        fig_map.draw_box(box_b, "#FFE207[#FFE20755]");
+        fig_map.draw_box(box(), "#FFE207[#FFE20755]");
     }
 
     else
     {
         bisect();
-        ((TdoaLocalizationPaving*)m_first_subpaving)->compute(box_a, sea_bounds, speed, precision, fig_map, tdoa_in);
-        ((TdoaLocalizationPaving*)m_second_subpaving)->compute(box_a, sea_bounds, speed, precision, fig_map, tdoa_in);
+        ((TdoaLocalizationPaving*)m_first_subpaving)->compute(box_a, sea_bounds, speed, precision, fig_map, tdoa_subpaving_in, tdoa_in, use_subpaving);
+        ((TdoaLocalizationPaving*)m_second_subpaving)->compute(box_a, sea_bounds, speed, precision, fig_map, tdoa_subpaving_in, tdoa_in, use_subpaving);
     }
 
     // todo: inner test?

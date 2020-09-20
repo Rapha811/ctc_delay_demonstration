@@ -14,7 +14,7 @@ public:
     }
 
     void compute(const ibex::IntervalVector& box_a, const ibex::Interval& sea_bounds, const ibex::Interval speed, float precision, tubex::VIBesFigMap& fig_map,
-                 const ibex::IntervalVector &tdoa_in);
+                 const std::vector<ibex::IntervalVector> &tdoa_subpaving_in, const ibex::IntervalVector &tdoa_in, bool use_subpaving);
 };
 
 #endif // TDOALOCALIZATIONPAVING_H

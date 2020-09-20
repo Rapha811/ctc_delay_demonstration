@@ -46,8 +46,23 @@ double compute_true_distances(const Vector& pa, // emission position (box)
     return Edge(pa,pi).length().mid() + Edge(pb,pi).length().mid();
 }
 
+tubex::Tube SoundSimulation::getY() const
+{
+    return y;
+}
+
+tubex::Tube SoundSimulation::getE() const
+{
+    return e;
+}
+
+ibex::Interval SoundSimulation::getInit_delay() const
+{
+    return init_delay;
+}
+
 SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::IntervalVector sea_, ibex::Vector pa_, ibex::Vector pb_,
-                                 tubex::TFunction signal, double velocity, double attenuation_coefficient, bool only_tdoa)
+                                 tubex::TFunction signal, double velocity, double attenuation_coefficient)
 {
 
     pa = pa_;
@@ -78,9 +93,9 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
     true_delay[1] = true_distances[1]/velocity;
     true_delay[2] = true_distances[2]/velocity;
 
-    if(only_tdoa){
-        true_delay = true_delay - Vector(3,true_delay[0]);
-    }
+    init_delay = (Interval(true_delay[0]) | true_delay[1] | true_delay[2]) + Interval(-10,10);
+
+    cout << "init delay: " << init_delay << endl;
 
     v_r[0].shift_tdomain(true_delay[0]);
     v_r[1].shift_tdomain(true_delay[1]);
@@ -103,18 +118,86 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
     cout << "true attenuation: " << true_attenuation << endl;
 
     // Defining all signals on the same t-domain
-    Interval common_t = v_r[0].tdomain() & v_r[1].tdomain() & v_r[2].tdomain();
-//    Interval common_t (30, 75);
-    v_r.truncate_tdomain(common_t);
+//    Interval common_t = v_r[0].tdomain() & v_r[1].tdomain() & v_r[2].tdomain();
+//    v_r.truncate_tdomain(common_t);
 
-    // Building reception tube
-    y = Tube(v_r[0], dt) + v_r[1] + v_r[2];
-    e = Tube(e_,dt);
+//    y = Tube(v_r[0], dt) + v_r[1] + v_r[2];
+//    e = Tube(e_,dt);
+
+    Interval y_time_domain = v_r[0].tdomain() | v_r[1].tdomain() | v_r[2].tdomain();
+
+    {
+        Interval common_t = y_time_domain | (tdomain+init_delay);
+//        common_t += Interval(-100,20);
+        vector<Interval> v_tdomains;
+        vector<Interval> v_codomains;
+        double lb, ub = common_t.lb();
+
+        do
+        {
+            lb = ub; // we guarantee all slices are adjacent
+            ub = min(lb + dt, common_t.ub()); // the tdomain of the last slice may be smaller
+
+            Interval tdomain (lb,ub);
+            v_tdomains.push_back(tdomain);
+            Interval codomain(0.0);
+            for (int i = 0; i < v_r.size(); ++i) {
+                if(tdomain.is_subset(v_r[i].tdomain())){
+                    codomain += v_r[i](tdomain);
+                }
+                else if(tdomain.intersects(v_r[i].tdomain())){
+                    Interval intersecting_tdomain = tdomain & v_r[i].tdomain();
+                    codomain += Interval(0.0) | v_r[i](intersecting_tdomain);
+                }
+            }
+            v_codomains.push_back(codomain);
+        } while(ub < common_t.ub());
+
+        y = Tube(v_tdomains, v_codomains);
+
+    }
+
+
+
+
+    {
+        Interval t_e = tdomain | (y_time_domain-init_delay);
+//        t_e += Interval(-20,20);
+        vector<Interval> v_tdomains_e;
+        vector<Interval> v_codomains_e;
+        double lb, ub = t_e.lb();
+
+        do
+        {
+            lb = ub; // we guarantee all slices are adjacent
+            ub = min(lb + dt, t_e.ub()); // the tdomain of the last slice may be smaller
+
+            Interval tdomain (lb,ub);
+            v_tdomains_e.push_back(tdomain);
+            Interval codomain(0.0);
+            if(tdomain.is_subset(e_.tdomain())){
+                codomain = e_(tdomain);
+            } else if(tdomain.intersects(e_.tdomain())){
+                Interval intersecting_tdomain = tdomain & e_.tdomain();
+                codomain = Interval(0.0) | e_(intersecting_tdomain);
+            }
+            v_codomains_e.push_back(codomain);
+        } while(ub < t_e.ub());
+
+        e = Tube(v_tdomains_e, v_codomains_e);
+
+    }
+
 
     // merge slices in the beginning and end that are very much similar
-    double distance_threshold = 1e-5;
+    double distance_threshold = 1e-3;
     e.merge_similar_slices(distance_threshold);
     y.merge_similar_slices(distance_threshold);
+    cout << "v_r0: " << v_r[0] << endl;
+    cout << "v_r1: " << v_r[1] << endl;
+    cout << "v_r2: " << v_r[2] << endl;
+    cout << "e: " << e << endl;
+    cout << "y: " << y << endl;
 
 }
 
@@ -171,7 +254,10 @@ void SoundSimulation::draw_signals(tubex::VIBesFigTube& fig_signals){
     fig_signals.add_trajectories(&v_r, "e", "blue");
     fig_signals.add_tube(&y, "y", "[magenta]");
     fig_signals.add_tube(&e, "e_", "[orange]");
+    Interval x_range(e.first_slice()->tdomain().ub()-5.0,y.last_slice()->tdomain().lb()+5.0);
+    Interval y_range = y.codomain() | e.codomain();
     fig_signals.show();
+    fig_signals.axis_limits(x_range.lb(),x_range.ub(),y_range.lb(),y_range.ub());
 }
 
 

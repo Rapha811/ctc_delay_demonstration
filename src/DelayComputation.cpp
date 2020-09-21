@@ -23,8 +23,6 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
     Function f_minus("a1", "a2", "a1-a2");
     CtcFunction ctc_greater(f_minus, Interval::POS_REALS);
 
-    CtcFunction ctc_minus(Function("a", "b", "c", "a-b-c")); // f=0
-
     // Defining domains
 
     // Copy of tubes, that may be contracted
@@ -65,22 +63,13 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
     cn.add(ctc::delay, {delay_in_out[1], e, v_r[1]});
     cn.add(ctc::delay, {delay_in_out[2], e, v_r[2]});
 
-    // Constraints: delays between three respective receptions
-//    cn.add(ctc::delay, {tdoa[0], v_r[0], v_r[1]});
-//    cn.add(ctc::delay, {tdoa[1], v_r[0], v_r[2]});
-//    cn.add(ctc::delay, {tdoa[2], v_r[1], v_r[2]});
-
-    //      cn.add(ctc_minus, {box_in[1], box_in[0], tau_0i});
-    //      cn.add(ctc_minus, {box_in[2], box_in[0], tau_0j});
-    //      cn.add(ctc_minus, {box_in[2], box_in[1], tau_ij});
-
     cn.contract(false); // use 'true' for verbose mode
-
 
     tdoa[0] = delay_in_out[1] - delay_in_out[0];
     tdoa[1] = delay_in_out[2] - delay_in_out[0];
     tdoa[2] = delay_in_out[2] - delay_in_out[1];
 
+    // Constraints: delays between three respective receptions
     CtcDelay ctc_delay;
     ctc_delay.contract(tdoa[0], v_r[0], v_r[1]);
     ctc_delay.contract(tdoa[1], v_r[0], v_r[2]);
@@ -147,6 +136,5 @@ void compute_delay_subpaving(IntervalVector& delay_in_out, const Tube& y_, const
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
     std::cout << "Time for delay computation = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
-
 
 }

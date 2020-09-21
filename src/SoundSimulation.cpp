@@ -46,17 +46,45 @@ double compute_true_distances(const Vector& pa, // emission position (box)
     return Edge(pa,pi).length().mid() + Edge(pb,pi).length().mid();
 }
 
-tubex::Tube SoundSimulation::getY() const
+tubex::Tube add_signals_and_build_reception_tube(const TrajectoryVector &v_r, const Interval &common_t, double dt){
+    vector<Interval> v_tdomains;
+    vector<Interval> v_codomains;
+    double lb, ub = common_t.lb();
+
+    do
+    {
+        lb = ub; // we guarantee all slices are adjacent
+        ub = min(lb + dt, common_t.ub()); // the tdomain of the last slice may be smaller
+
+        Interval tdomain (lb,ub);
+        v_tdomains.push_back(tdomain);
+        Interval codomain(0.0);
+        for (int i = 0; i < v_r.size(); ++i) {
+            if(tdomain.is_subset(v_r[i].tdomain())){
+                codomain += v_r[i](tdomain);
+            }
+            else if(tdomain.intersects(v_r[i].tdomain())){
+                Interval intersecting_tdomain = tdomain & v_r[i].tdomain();
+                codomain += Interval(0.0) | v_r[i](intersecting_tdomain);
+            }
+        }
+        v_codomains.push_back(codomain);
+    } while(ub < common_t.ub());
+
+    return Tube(v_tdomains, v_codomains);
+}
+
+tubex::Tube SoundSimulation::get_reception_tube_y() const
 {
     return y;
 }
 
-tubex::Tube SoundSimulation::getE() const
+tubex::Tube SoundSimulation::get_emission_tube_e() const
 {
     return e;
 }
 
-ibex::Interval SoundSimulation::getInit_delay() const
+ibex::Interval SoundSimulation::get_init_delay() const
 {
     return init_delay;
 }
@@ -65,22 +93,20 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
                                  tubex::TFunction signal, double velocity, double attenuation_coefficient)
 {
 
-    pa = pa_;
-    pb = pb_;
+    position_receiver = pa_;
+    position_emitter = pb_;
     sea = sea_;
 
-    pa_surface = {pa[0],-pa[1]+2.*sea[1].ub()};
-    pa_seabed = {pa[0],-pa[1]+2.*sea[1].lb()};
+    // reflected positions of the receiver
+    position_receiver_surface = {position_receiver[0],-position_receiver[1]+2.*sea[1].ub()};
+    position_receiver_seabed = {position_receiver[0],-position_receiver[1]+2.*sea[1].lb()};
 
     // Computing truth
+    true_distances[0] = Edge(position_receiver,position_emitter).length().mid(); // direct path
+    true_distances[1] = compute_true_distances(position_receiver, position_emitter, sea[1].ub()); // surface
+    true_distances[2] = compute_true_distances(position_emitter, position_receiver, sea[1].lb()); // seabed
 
-    true_distances[0] = Edge(pa,pb).length().mid(); // direct path
-    true_distances[1] = compute_true_distances(pa, pb, sea[1].ub()); // surface
-    true_distances[2] = compute_true_distances(pb, pa, sea[1].lb()); // seabed
-
-    // Computing shifted signals
-
-    // Reference signal ([e]mission), inspired from Ricker wavelet
+    // Reference signal ([e]mission)
     e_ = Trajectory(tdomain, signal, dt);
 
     // Delayed [r]eceived signals
@@ -93,10 +119,13 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
     true_delay[1] = true_distances[1]/velocity;
     true_delay[2] = true_distances[2]/velocity;
 
+    // an initial range for the delay must be specified for CtcDelay to work (otherwise the behaviour would be undefined since the signals are not defined infinitely)
+    // we select init_delay such that it enclosed the true delay +/- some uncertainty which will be contracted. this is just a very rough assumption.
     init_delay = (Interval(true_delay[0]) | true_delay[1] | true_delay[2]) + Interval(-10,10);
 
     cout << "init delay: " << init_delay << endl;
 
+    // Computing shifted signals
     v_r[0].shift_tdomain(true_delay[0]);
     v_r[1].shift_tdomain(true_delay[1]);
     v_r[2].shift_tdomain(true_delay[2]);
@@ -117,82 +146,22 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
 
     cout << "true attenuation: " << true_attenuation << endl;
 
-    // Defining all signals on the same t-domain
-//    Interval common_t = v_r[0].tdomain() & v_r[1].tdomain() & v_r[2].tdomain();
-//    v_r.truncate_tdomain(common_t);
 
-//    y = Tube(v_r[0], dt) + v_r[1] + v_r[2];
-//    e = Tube(e_,dt);
+    // generation of the tubes enclosing the emitted and received signal
+    // the signals are padded with zeros inside the computed time domains to allow the CtcDelay to work
+    Interval y_tdomain = v_r[0].tdomain() | v_r[1].tdomain() | v_r[2].tdomain();
 
-    Interval y_time_domain = v_r[0].tdomain() | v_r[1].tdomain() | v_r[2].tdomain();
+    Interval y_tdomain_padded = y_tdomain | (tdomain+init_delay);
+    y = add_signals_and_build_reception_tube(v_r, y_tdomain_padded, dt);
 
-    {
-        Interval common_t = y_time_domain | (tdomain+init_delay);
-//        common_t += Interval(-100,20);
-        vector<Interval> v_tdomains;
-        vector<Interval> v_codomains;
-        double lb, ub = common_t.lb();
-
-        do
-        {
-            lb = ub; // we guarantee all slices are adjacent
-            ub = min(lb + dt, common_t.ub()); // the tdomain of the last slice may be smaller
-
-            Interval tdomain (lb,ub);
-            v_tdomains.push_back(tdomain);
-            Interval codomain(0.0);
-            for (int i = 0; i < v_r.size(); ++i) {
-                if(tdomain.is_subset(v_r[i].tdomain())){
-                    codomain += v_r[i](tdomain);
-                }
-                else if(tdomain.intersects(v_r[i].tdomain())){
-                    Interval intersecting_tdomain = tdomain & v_r[i].tdomain();
-                    codomain += Interval(0.0) | v_r[i](intersecting_tdomain);
-                }
-            }
-            v_codomains.push_back(codomain);
-        } while(ub < common_t.ub());
-
-        y = Tube(v_tdomains, v_codomains);
-
-    }
-
-
-
-
-    {
-        Interval t_e = tdomain | (y_time_domain-init_delay);
-//        t_e += Interval(-20,20);
-        vector<Interval> v_tdomains_e;
-        vector<Interval> v_codomains_e;
-        double lb, ub = t_e.lb();
-
-        do
-        {
-            lb = ub; // we guarantee all slices are adjacent
-            ub = min(lb + dt, t_e.ub()); // the tdomain of the last slice may be smaller
-
-            Interval tdomain (lb,ub);
-            v_tdomains_e.push_back(tdomain);
-            Interval codomain(0.0);
-            if(tdomain.is_subset(e_.tdomain())){
-                codomain = e_(tdomain);
-            } else if(tdomain.intersects(e_.tdomain())){
-                Interval intersecting_tdomain = tdomain & e_.tdomain();
-                codomain = Interval(0.0) | e_(intersecting_tdomain);
-            }
-            v_codomains_e.push_back(codomain);
-        } while(ub < t_e.ub());
-
-        e = Tube(v_tdomains_e, v_codomains_e);
-
-    }
-
+    Interval e_tdomain_padded = tdomain | (y_tdomain-init_delay);
+    e = add_signals_and_build_reception_tube(TrajectoryVector(1, e_), e_tdomain_padded, dt);
 
     // merge slices in the beginning and end that are very much similar
     double distance_threshold = 1e-3;
     e.merge_similar_slices(distance_threshold);
     y.merge_similar_slices(distance_threshold);
+
     cout << "v_r0: " << v_r[0] << endl;
     cout << "v_r1: " << v_r[1] << endl;
     cout << "v_r2: " << v_r[2] << endl;
@@ -201,50 +170,55 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
 
 }
 
+void draw_hyperbola(tubex::VIBesFigMap& fig_map, const IntervalVector &sea, double dt, double diff, const Vector &b, const Vector &c, string color){
+
+    double xb = b[0];
+    double yb = b[1];
+
+    double xc = c[0];
+    double yc = c[1];
+
+    for (double x = sea[0].lb(); x < sea[0].ub(); x+=dt) {
+
+        // solved using MATLAB
+        double y1 = (diff*sqrt((xb*xc*-2.0-yb*yc*2.0-diff*diff+xb*xb+xc*xc+yb*yb+yc*yc)*(x*xb*-4.0-x*xc*4.0+xb*xc*2.0-yb*yc*2.0-diff*diff+(x*x)*4.0+xb*xb+xc*xc+yb*yb+yc*yc))+(diff*diff)*yb+(diff*diff)*yc-(xb*xb)*yb+(xb*xb)*yc+(xc*xc)*yb-(xc*xc)*yc+yb*(yc*yc)+(yb*yb)*yc-yb*yb*yb-yc*yc*yc+x*xb*yb*2.0-x*xb*yc*2.0-x*xc*yb*2.0+x*xc*yc*2.0)/(yb*yc*4.0+(diff*diff)*2.0-(yb*yb)*2.0-(yc*yc)*2.0);
+        double y2 = (-diff*sqrt((xb*xc*-2.0-yb*yc*2.0-diff*diff+xb*xb+xc*xc+yb*yb+yc*yc)*(x*xb*-4.0-x*xc*4.0+xb*xc*2.0-yb*yc*2.0-diff*diff+(x*x)*4.0+xb*xb+xc*xc+yb*yb+yc*yc))+(diff*diff)*yb+(diff*diff)*yc-(xb*xb)*yb+(xb*xb)*yc+(xc*xc)*yb-(xc*xc)*yc+yb*(yc*yc)+(yb*yb)*yc-yb*yb*yb-yc*yc*yc+x*xb*yb*2.0-x*xb*yc*2.0-x*xc*yb*2.0+x*xc*yc*2.0)/(yb*yc*4.0+(diff*diff)*2.0-(yb*yb)*2.0-(yc*yc)*2.0);
+
+        if(sea[1].contains(y1)) fig_map.draw_point(Point(x,y1), color);
+        if(sea[1].contains(y2)) fig_map.draw_point(Point(x,y2), color);
+    }
+}
+
 void SoundSimulation::draw_map(tubex::VIBesFigMap& fig_map){
 
     fig_map.draw_box(sea, "#CEEEFF[#CEEEFF]");
-    fig_map.draw_vehicle({pa[0],pa[1],M_PI}, 0.8);
-    fig_map.draw_vehicle({pb[0],pb[1],0.}, 0.8);
+    fig_map.draw_vehicle({position_receiver[0],position_receiver[1],M_PI}, 0.8);
+    fig_map.draw_vehicle({position_emitter[0],position_emitter[1],0.}, 0.8);
 
-    fig_map.draw_edge(Edge(pa,pb));
-    draw_ray_truth(fig_map, pa, pb, sea[1].ub()); // surface
-    draw_ray_truth(fig_map, pb, pa, sea[1].lb()); // seabed
+    fig_map.draw_edge(Edge(position_receiver,position_emitter));
+    draw_ray_truth(fig_map, position_receiver, position_emitter, sea[1].ub()); // surface
+    draw_ray_truth(fig_map, position_emitter, position_receiver, sea[1].lb()); // seabed
 
-    fig_map.draw_circle(pa[0],pa[1],true_distances[0],"red");
-    fig_map.draw_circle(pa_surface[0],pa_surface[1],true_distances[1],"red");
-    fig_map.draw_circle(pa_seabed[0],pa_seabed[1],true_distances[2],"red");
+    /// can be used to draw three circles corresponding to the distance between emitter and (reflected) receiver positions
+//    fig_map.draw_circle(pa[0],pa[1],true_distances[0],"red");
+//    fig_map.draw_circle(pa_surface[0],pa_surface[1],true_distances[1],"red");
+//    fig_map.draw_circle(pa_seabed[0],pa_seabed[1],true_distances[2],"red");
 
-    for (double x = sea[0].lb(); x < sea[0].ub(); x+=0.01) {
-        for (double y = sea[1].lb(); y < sea[1].ub(); y+=0.01) {
+    /// can be used to draw the hyperbolas corresponding to the pseudo ranges
+    /// in practice, we do not know whether true_distances[1] and true_distances[2] correspond to reflections on the surface OR seabed
 
-            double distance = sqrt(pow(x-pa_surface[0],2) + pow(y-pa_surface[1],2)) - sqrt(pow(x-pa[0],2) + pow(y-pa[1],2));
-            if(abs(distance - (true_distances[1]-true_distances[0])) < 0.01){
-                fig_map.draw_point(Point(x,y), "blue");
-            }
-            if(abs(distance - (true_distances[2]-true_distances[0])) < 0.01){
-                fig_map.draw_point(Point(x,y), "orange");
-            }
+    // correct correspondences between distances and surface/seabead
+    draw_hyperbola(fig_map, sea, 0.01, true_distances[1]-true_distances[0], position_receiver_surface, position_receiver, "blue");
+    draw_hyperbola(fig_map, sea, 0.01, true_distances[2]-true_distances[0], position_receiver_seabed, position_receiver, "blue");
+    // the third hyperbola is redundant
+//    draw_hyperbola(fig_map, sea, 0.01, true_distances[2]-true_distances[1], position_receiver_seabed, position_receiver_surface, "blue");
 
-            double distance1 = sqrt(pow(x-pa_seabed[0],2) + pow(y-pa_seabed[1],2)) - sqrt(pow(x-pa[0],2) + pow(y-pa[1],2));
-            if(abs(distance1 - (true_distances[2]-true_distances[0])) < 0.01){
-                fig_map.draw_point(Point(x,y), "blue");
-            }
-            if(abs(distance1 - (true_distances[1]-true_distances[0])) < 0.01){
-                fig_map.draw_point(Point(x,y), "orange");
-            }
+    // incorrect correspondences between distances and surface/seabead
+    draw_hyperbola(fig_map, sea, 0.01, true_distances[2]-true_distances[0], position_receiver_surface, position_receiver, "orange");
+    draw_hyperbola(fig_map, sea, 0.01, true_distances[1]-true_distances[0], position_receiver_seabed, position_receiver, "orange");
+    // the third hyperbola is redundant
+//    draw_hyperbola(fig_map, sea, 0.01, true_distances[1]-true_distances[2], position_receiver_seabed, position_receiver_surface, "orange");
 
-            double distance2 = sqrt(pow(x-pa_surface[0],2) + pow(y-pa_surface[1],2)) - sqrt(pow(x-pa_seabed[0],2) + pow(y-pa_seabed[1],2));
-            if(abs(distance2 - (true_distances[1]-true_distances[2])) < 0.01){
-                fig_map.draw_point(Point(x,y), "blue");
-            }
-            if(abs(distance2 - (true_distances[2]-true_distances[1])) < 0.01){
-                fig_map.draw_point(Point(x,y), "orange");
-            }
-
-        }
-
-    }
     fig_map.show();
 
 }

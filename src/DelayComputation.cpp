@@ -38,7 +38,7 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
     tdoa[1] &= Interval::POS_REALS;
 
     // Attenuation
-    IntervalVector attenuation (3, Interval(0.1,1));
+    IntervalVector attenuation (3, Interval(0,1));
 
     // Solver
 

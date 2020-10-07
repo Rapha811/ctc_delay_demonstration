@@ -7,6 +7,6 @@
 #include <chrono>
 
 void compute_delay_subpaving(ibex::IntervalVector& delay_in_out, const tubex::Tube& y_, const tubex::Tube& e_, float precision, std::vector<ibex::IntervalVector>& subpaving_delay,
-                             std::vector<ibex::IntervalVector>& subpaving_tdoa, ibex::IntervalVector& tdoa_out, const tubex::TrajectoryVector& v_r_traj);
+                             std::vector<ibex::IntervalVector>& subpaving_tdoa, ibex::IntervalVector& tdoa_out);
 
 #endif // DELAYCOMPUTATION_H

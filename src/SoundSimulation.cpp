@@ -89,6 +89,11 @@ ibex::Interval SoundSimulation::get_init_delay() const
     return init_delay;
 }
 
+tubex::TrajectoryVector SoundSimulation::get_three_signal_components() const
+{
+    return v_r;
+}
+
 SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::IntervalVector sea_, ibex::Vector pa_, ibex::Vector pb_,
                                  tubex::TFunction signal, double velocity, double attenuation_coefficient)
 {
@@ -140,19 +145,19 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
     true_attenuation[0] = 1/pow(true_distances[0],attenuation_coefficient);
     true_attenuation[1] = 1/pow(true_distances[1],attenuation_coefficient);
     true_attenuation[2] = 1/pow(true_distances[2],attenuation_coefficient);
-    v_r[0] *= true_attenuation[0];
-    v_r[1] *= true_attenuation[1];
-    v_r[2] *= true_attenuation[2];
+    v_r_att[0] = v_r[0] * true_attenuation[0];
+    v_r_att[1] = v_r[1] * true_attenuation[1];
+    v_r_att[2] = v_r[2] * true_attenuation[2];
 
     cout << "true attenuation: " << true_attenuation << endl;
 
 
     // generation of the tubes enclosing the emitted and received signal
     // the signals are padded with zeros inside the computed time domains to allow the CtcDelay to work
-    Interval y_tdomain = v_r[0].tdomain() | v_r[1].tdomain() | v_r[2].tdomain();
+    Interval y_tdomain = v_r_att[0].tdomain() | v_r_att[1].tdomain() | v_r_att[2].tdomain();
 
     Interval y_tdomain_padded = y_tdomain | (tdomain+init_delay);
-    y = add_signals_and_build_reception_tube(v_r, y_tdomain_padded, dt);
+    y = add_signals_and_build_reception_tube(v_r_att, y_tdomain_padded, dt);
 
     Interval e_tdomain_padded = tdomain | (y_tdomain-init_delay);
     e = add_signals_and_build_reception_tube(TrajectoryVector(1, e_), e_tdomain_padded, dt);
@@ -162,9 +167,9 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
     e.merge_similar_slices(distance_threshold);
     y.merge_similar_slices(distance_threshold);
 
-    cout << "v_r0: " << v_r[0] << endl;
-    cout << "v_r1: " << v_r[1] << endl;
-    cout << "v_r2: " << v_r[2] << endl;
+    cout << "v_r0: " << v_r_att[0] << endl;
+    cout << "v_r1: " << v_r_att[1] << endl;
+    cout << "v_r2: " << v_r_att[2] << endl;
     cout << "e: " << e << endl;
     cout << "y: " << y << endl;
 
@@ -225,7 +230,7 @@ void SoundSimulation::draw_map(tubex::VIBesFigMap& fig_map){
 
 void SoundSimulation::draw_signals(tubex::VIBesFigTube& fig_signals){
     fig_signals.add_trajectory(&e_, "e", "#AF0800");
-    fig_signals.add_trajectories(&v_r, "e", "blue");
+    fig_signals.add_trajectories(&v_r_att, "e", "blue");
     fig_signals.add_tube(&y, "y", "[magenta]");
     fig_signals.add_tube(&e, "e_", "[orange]");
     Interval x_range(e.first_slice()->tdomain().ub()-5.0,y.last_slice()->tdomain().lb()+5.0);

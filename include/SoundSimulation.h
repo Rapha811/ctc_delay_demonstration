@@ -22,6 +22,8 @@ public:
 
     ibex::Interval get_init_delay() const;
 
+    tubex::TrajectoryVector get_three_signal_components() const;
+
 protected:
     SoundSimulation();
 
@@ -59,6 +61,9 @@ private:
 
     // three components of the received signal without uncertainty
     tubex::TrajectoryVector v_r = tubex::TrajectoryVector(3);
+
+    // dampened v_r
+    tubex::TrajectoryVector v_r_att = tubex::TrajectoryVector(3);
 
 };
 

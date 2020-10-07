@@ -31,10 +31,10 @@ int main()
     IntervalVector sea({{-7.,7.},{-14.,-1.}});
 
     // Robots
-    Vector pa{6.5,-6.}, pb{-6.5,-3.};
+    Vector pa{6.5,-6.}, pb{-6,-4.};
 
     // speed of signal
-    double velocity = 0.2;
+    double velocity = 0.4;
 
     // attenuation of signal
     double attenuation_coefficient = 0.1;
@@ -56,12 +56,15 @@ int main()
     vector<IntervalVector> subpaving_tdoa;
     IntervalVector tdoa(3);
     IntervalVector delay (3, my_simulation.get_init_delay());
+    delay[0] = Interval(20,35);
+    delay[1] = Interval(45,60);
+    delay[2] = Interval(30,45);
 
     // sivia precision for the delay computation
-    // can be very rough since sivia is only needed to initially distinguish between the three signal components
+    // can be very coarse since sivia is only needed to initially distinguish between the three signal components
     double sivia_precision_delay = 5.0;
 
-    compute_delay_subpaving(delay, my_simulation.get_reception_tube_y(), my_simulation.get_emission_tube_e(), sivia_precision_delay, subpaving_delay, subpaving_tdoa, tdoa);
+    compute_delay_subpaving(delay, my_simulation.get_reception_tube_y(), my_simulation.get_emission_tube_e(), sivia_precision_delay, subpaving_delay, subpaving_tdoa, tdoa, my_simulation.get_three_signal_components());
 
     if(subpaving_delay.empty()){
         cout << "no valid delay found!" << endl;

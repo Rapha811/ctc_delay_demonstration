@@ -68,8 +68,6 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
     double old_volume_attenuation = attenuation.volume();
     double old_volume_vr = v_r.volume();
 
-    cn.contract(false);
-
     int i = 0;
     while(continue_contraction){
 

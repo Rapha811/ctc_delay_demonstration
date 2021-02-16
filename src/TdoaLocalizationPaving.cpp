@@ -47,25 +47,23 @@ bool build_cn_and_contract(const IntervalVector& box_a, // emission position
         IntervalVector tdoa_cur (tdoa_vec[i]);
 
         Function f1_1(b, relative_distance1(box_a,b,sea_bounds_ub,tdoa_cur[0]));
-        Function f1_2(b, relative_distance1(box_a,b,sea_bounds_ub,tdoa_cur[1]));
         CtcFunction ctc1_1(f1_1);
-        CtcFunction ctc1_2(f1_2);
-        CtcUnion ctc1 (ctc1_1,ctc1_2);
-
-        Function f2_1(b, relative_distance1(box_a,b,sea_bounds_lb,tdoa_cur[0]));
-        Function f2_2(b, relative_distance1(box_a,b,sea_bounds_lb,tdoa_cur[1]));
-        CtcFunction ctc2_1(f2_1);
-        CtcFunction ctc2_2(f2_2);
-        CtcUnion ctc2 (ctc2_1,ctc2_2);
-
+        Function f2_1(b, relative_distance1(box_a,b,sea_bounds_lb,tdoa_cur[1]));
+        CtcFunction ctc2_2(f2_1);
         Function f3_1(b, relative_distance2(box_a,b,sea_bounds_lb,sea_bounds_ub,tdoa_cur[2]));
-        Function f3_2(b, relative_distance2(box_a,b,sea_bounds_ub,sea_bounds_lb,tdoa_cur[2]));
         CtcFunction ctc3_1(f3_1);
-        CtcFunction ctc3_2(f3_2);
-        CtcUnion ctc3 (ctc3_1,ctc3_2);
+        CtcCompo ctc_compo1 (ctc1_1, ctc2_2, ctc3_1);
 
-        CtcCompo ctc_compo(ctc1, ctc2, ctc3);
-        CtcFixPoint ctc_fix (ctc_compo, 0.1);
+        Function f1_2(b, relative_distance1(box_a,b,sea_bounds_ub,tdoa_cur[1]));
+        CtcFunction ctc1_2(f1_2);
+        Function f2_2(b, relative_distance1(box_a,b,sea_bounds_lb,tdoa_cur[0]));
+        CtcFunction ctc2_1(f2_2);
+        Function f3_2(b, relative_distance2(box_a,b,sea_bounds_ub,sea_bounds_lb,tdoa_cur[2]));
+        CtcFunction ctc3_2(f3_2);
+        CtcCompo ctc_compo2 (ctc1_2, ctc2_1, ctc3_2);
+
+        CtcUnion ctc_union(ctc_compo1, ctc_compo2);
+        CtcFixPoint ctc_fix (ctc_union, 0.1);
 
         IntervalVector box_b_ (box_b);
         ctc_fix.contract(box_b_);
@@ -98,13 +96,13 @@ void TdoaLocalizationPaving::compute(const IntervalVector& box_a, // emission po
     if(emptiness)
     {
         set_value(SetValue::OUT);
-        fig_map.draw_box(box(), "#0059AF[#0059AF55]");
+        fig_map.draw_box(box(), "#666666ff[#cccccc55]");
     }
 
     else if(box().max_diam() < precision)
     {
         set_value(SetValue::MAYBE);
-        fig_map.draw_box(box(), "#FFE207[#FFE20755]");
+        fig_map.draw_box(box(), "#009b00ff[#009b00b4]");
     }
 
     else

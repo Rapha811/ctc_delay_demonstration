@@ -56,7 +56,8 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
     cn.add(ctc_greater, {delay_in_out[2], delay_in_out[0]});
 
     // WLOG: one signal MUST arrive before the other or they arrive at the same time. we just have to remember this later during the localization.
-    cn.add(ctc_greater, {delay_in_out[1], delay_in_out[2]});
+    cn.add(ctc_greater, {delay_in_out[2], delay_in_out[1]});
+    cn.add(ctc_greater, {attenuation[1], attenuation[2]});
 
     cn.contract(false);
 

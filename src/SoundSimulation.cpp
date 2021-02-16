@@ -196,7 +196,7 @@ void draw_hyperbola(tubex::VIBesFigMap& fig_map, const IntervalVector &sea, doub
 
 void SoundSimulation::draw_map(tubex::VIBesFigMap& fig_map){
 
-    fig_map.draw_box(sea, "#CEEEFF[#CEEEFF]");
+    fig_map.draw_box(sea, "[#e6e6e655]");
     fig_map.draw_vehicle({position_receiver[0],position_receiver[1],M_PI}, 0.8);
     fig_map.draw_vehicle({position_emitter[0],position_emitter[1],0.}, 0.8);
 

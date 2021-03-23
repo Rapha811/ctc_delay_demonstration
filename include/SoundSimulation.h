@@ -1,8 +1,8 @@
 #ifndef SOUNDSIMULATION_H
 #define SOUNDSIMULATION_H
 
-#include <tubex.h>
-#include <tubex-rob.h>
+#include <codac.h>
+#include <codac-rob.h>
 #include "ibex.h"
 
 class SoundSimulation
@@ -10,19 +10,19 @@ class SoundSimulation
 public:
 
     SoundSimulation(double dt, ibex::Interval tdomain, ibex::IntervalVector sea_, ibex::Vector pa_, ibex::Vector pb_,
-                    tubex::TFunction signal, double velocity, double attenuation_coefficient);
+                    codac::TFunction signal, double velocity, double attenuation_coefficient);
 
-    void draw_map(tubex::VIBesFigMap& fig_map);
+    void draw_map(codac::VIBesFigMap& fig_map);
 
-    void draw_signals(tubex::VIBesFigTube& fig_signals);
+    void draw_signals(codac::VIBesFigTube& fig_signals);
 
-    tubex::Tube get_reception_tube_y() const;
+    codac::Tube get_reception_tube_y() const;
 
-    tubex::Tube get_emission_tube_e() const;
+    codac::Tube get_emission_tube_e() const;
 
     ibex::Interval get_init_delay() const;
 
-    tubex::TrajectoryVector get_three_signal_components() const;
+    codac::TrajectoryVector get_three_signal_components() const;
 
 protected:
     SoundSimulation();
@@ -51,19 +51,19 @@ private:
     ibex::Interval init_delay;
 
     // reception tube of the three superimposed signals
-    tubex::Tube y = tubex::Tube(ibex::Interval(0,1));
+    codac::Tube y = codac::Tube(ibex::Interval(0,1));
 
     // tube of the emitted signals which we assume to know
-    tubex::Tube e = tubex::Tube(ibex::Interval(0,1));
+    codac::Tube e = codac::Tube(ibex::Interval(0,1));
 
     // emitted signal without uncertainty
-    tubex::Trajectory e_;
+    codac::Trajectory e_;
 
     // three components of the received signal without uncertainty
-    tubex::TrajectoryVector v_r = tubex::TrajectoryVector(3);
+    codac::TrajectoryVector v_r = codac::TrajectoryVector(3);
 
     // dampened v_r
-    tubex::TrajectoryVector v_r_att = tubex::TrajectoryVector(3);
+    codac::TrajectoryVector v_r_att = codac::TrajectoryVector(3);
 
 };
 

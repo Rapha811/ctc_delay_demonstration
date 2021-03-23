@@ -1,7 +1,7 @@
 #include "TdoaLocalizationPaving.h"
 
 using namespace ibex;
-using namespace tubex;
+using namespace codac;
 using namespace std;
 
 
@@ -101,7 +101,7 @@ void TdoaLocalizationPaving::compute(const IntervalVector& box_a, // emission po
 
     else if(box().max_diam() < precision)
     {
-        set_value(SetValue::MAYBE);
+        set_value(SetValue::UNKNOWN);
         fig_map.draw_box(box(), "#009b00ff[#009b00b4]");
     }
 

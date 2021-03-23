@@ -2,9 +2,9 @@
 
 using namespace std;
 using namespace ibex;
-using namespace tubex;
+using namespace codac;
 
-bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& tdoa, const Tube& y_, const Tube& e_){
+bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& tdoa, const Tube& y_, const Tube& e_, const codac::TrajectoryVector& v_r_traj){
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
@@ -68,6 +68,13 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
     double old_volume_attenuation = attenuation.volume();
     double old_volume_vr = v_r.volume();
 
+//    VIBesFigTube fig_signals_after_contraction("Signal_Contraction");
+//    fig_signals_after_contraction.add_trajectories(&v_r_traj, "x", "black");
+//    fig_signals_after_contraction.add_tube(&v_r[0], "vr0", "[#ff000064]", "#00000000[#00000000]");
+//    fig_signals_after_contraction.add_tube(&v_r[1], "vr1", "[#0000ff64]", "#00000000[#00000000]");
+//    fig_signals_after_contraction.add_tube(&v_r[2], "vr2", "[#00800064]", "#00000000[#00000000]");
+//    fig_signals_after_contraction.set_properties(1300, 10, 600, 300);
+
     int i = 0;
     while(continue_contraction){
 
@@ -81,6 +88,11 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
         ctc_delay.contract(delay_in_out[1], e, v_r[1]);
         ctc_delay.contract(delay_in_out[2], e, v_r[2]);
 
+        // Visualization of contracted signal tubes
+//        fig_signals_after_contraction.show();
+//        fig_signals_after_contraction.axis_limits(25.2, 61.2,-0.555562881137756, 1.244933115499084);
+//        fig_signals_after_contraction.save_image(std::to_string(i*2), "svg", "/home/raphael/Arbeit/Time-Delay-Contractor/latex/figures/contraction_figures_temp");
+
         // If CtcDelay does not contract (or results in the empty set), we do not need to call the CN
         if(!delay_in_out.is_empty() && !attenuation.is_empty() && !v_r.is_empty() &&
                 (old_volume_delay > delay_in_out.volume() || old_volume_attenuation > attenuation.volume() || old_volume_vr > v_r.volume())){
@@ -93,6 +105,11 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
             if(!delay_in_out.is_empty() && !attenuation.is_empty() && !v_r.is_empty()){
                 continue_contraction = true;
             }
+
+            // Visualization of contracted signal tubes
+//            fig_signals_after_contraction.show();
+//            fig_signals_after_contraction.axis_limits(25.2, 61.2,-0.555562881137756, 1.244933115499084);
+//            fig_signals_after_contraction.save_image(std::to_string(i*2+1), "svg", "/home/raphael/Arbeit/Time-Delay-Contractor/latex/figures/contraction_figures_temp");
         }
 
         i++;
@@ -124,7 +141,7 @@ bool build_cn_and_contract_delay(IntervalVector& delay_in_out, IntervalVector& t
 
 
 void compute_delay_subpaving(IntervalVector& delay_in_out, const Tube& y_, const Tube& e_, float precision, vector<IntervalVector>& subpaving_delay,
-                             vector<IntervalVector>& subpaving_tdoa, IntervalVector& tdoa_out){
+                             vector<IntervalVector>& subpaving_tdoa, IntervalVector& tdoa_out, const codac::TrajectoryVector& v_r_traj){
 
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -144,7 +161,7 @@ void compute_delay_subpaving(IntervalVector& delay_in_out, const Tube& y_, const
         s.pop();
 
         IntervalVector tdoa(3);
-        bool emptiness = build_cn_and_contract_delay(box, tdoa, y_, e_);
+        bool emptiness = build_cn_and_contract_delay(box, tdoa, y_, e_, v_r_traj);
 
         if(emptiness){
             continue;

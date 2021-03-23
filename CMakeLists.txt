@@ -1,5 +1,5 @@
 # ==================================================================
-#  tubex-lib / basics example - cmake configuration file
+#  codac-lib / basics example - cmake configuration file
 # ==================================================================
 
   cmake_minimum_required(VERSION 3.0.2)
@@ -15,14 +15,14 @@
   ibex_init_common() # IBEX should have installed this function
   message(STATUS "Found IBEX version ${IBEX_VERSION}")
 
-# Adding Tubex
+# Adding Codac
 
-  # In case you installed Tubex in a local directory, you need 
+  # In case you installed Codac in a local directory, you need
   # to specify its path with the CMAKE_PREFIX_PATH option.
-  # set(CMAKE_PREFIX_PATH "~/tubex-lib/build_install")
+  #  set(CMAKE_PREFIX_PATH "~/codac-install")
 
-  find_package(TUBEX REQUIRED)
-  message(STATUS "Found Tubex version ${TUBEX_VERSION}")
+  find_package(CODAC REQUIRED)
+  message(STATUS "Found Codac version ${CODAC_VERSION}")
 
   include_directories(
       include
@@ -31,6 +31,6 @@
 # Compilation
 
   add_executable(${PROJECT_NAME} src/main.cpp src/SoundSimulation.cpp src/DelayComputation.cpp src/TdoaLocalizationPaving.cpp)
-  target_compile_options(${PROJECT_NAME} PUBLIC ${TUBEX_CXX_FLAGS})
-  target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${TUBEX_INCLUDE_DIRS})
-  target_link_libraries(${PROJECT_NAME} PUBLIC ${TUBEX_LIBRARIES} Ibex::ibex ${TUBEX_LIBRARIES})
+  target_compile_options(${PROJECT_NAME} PUBLIC ${CODAC_CXX_FLAGS})
+  target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${CODAC_INCLUDE_DIRS})
+  target_link_libraries(${PROJECT_NAME} PUBLIC ${CODAC_LIBRARIES} Ibex::ibex ${CODAC_LIBRARIES})

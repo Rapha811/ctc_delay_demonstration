@@ -1,7 +1,7 @@
 #include "SoundSimulation.h"
 
 using namespace ibex;
-using namespace tubex;
+using namespace codac;
 using namespace std;
 
 // Computes the boxed refraction point between signal emission/reception (for multipaths)
@@ -46,7 +46,7 @@ double compute_true_distances(const Vector& pa, // emission position (box)
     return Edge(pa,pi).length().mid() + Edge(pb,pi).length().mid();
 }
 
-tubex::Tube add_signals_and_build_reception_tube(const TrajectoryVector &v_r, const Interval &common_t, double dt){
+codac::Tube add_signals_and_build_reception_tube(const TrajectoryVector &v_r, const Interval &common_t, double dt){
     vector<Interval> v_tdomains;
     vector<Interval> v_codomains;
     double lb, ub = common_t.lb();
@@ -74,12 +74,12 @@ tubex::Tube add_signals_and_build_reception_tube(const TrajectoryVector &v_r, co
     return Tube(v_tdomains, v_codomains);
 }
 
-tubex::Tube SoundSimulation::get_reception_tube_y() const
+codac::Tube SoundSimulation::get_reception_tube_y() const
 {
     return y;
 }
 
-tubex::Tube SoundSimulation::get_emission_tube_e() const
+codac::Tube SoundSimulation::get_emission_tube_e() const
 {
     return e;
 }
@@ -89,13 +89,13 @@ ibex::Interval SoundSimulation::get_init_delay() const
     return init_delay;
 }
 
-tubex::TrajectoryVector SoundSimulation::get_three_signal_components() const
+codac::TrajectoryVector SoundSimulation::get_three_signal_components() const
 {
     return v_r;
 }
 
 SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::IntervalVector sea_, ibex::Vector pa_, ibex::Vector pb_,
-                                 tubex::TFunction signal, double velocity, double attenuation_coefficient)
+                                 codac::TFunction signal, double velocity, double attenuation_coefficient)
 {
 
     position_receiver = pa_;
@@ -175,7 +175,7 @@ SoundSimulation::SoundSimulation(double dt, ibex::Interval tdomain, ibex::Interv
 
 }
 
-void draw_hyperbola(tubex::VIBesFigMap& fig_map, const IntervalVector &sea, double dt, double diff, const Vector &b, const Vector &c, string color){
+void draw_hyperbola(codac::VIBesFigMap& fig_map, const IntervalVector &sea, double dt, double diff, const Vector &b, const Vector &c, string color){
 
     double xb = b[0];
     double yb = b[1];
@@ -183,18 +183,33 @@ void draw_hyperbola(tubex::VIBesFigMap& fig_map, const IntervalVector &sea, doub
     double xc = c[0];
     double yc = c[1];
 
+    std::vector<double> v_x1;
+    std::vector<double> v_y1;
+    std::vector<double> v_x2;
+    std::vector<double> v_y2;
+
     for (double x = sea[0].lb(); x < sea[0].ub(); x+=dt) {
 
         // solved using MATLAB
         double y1 = (diff*sqrt((xb*xc*-2.0-yb*yc*2.0-diff*diff+xb*xb+xc*xc+yb*yb+yc*yc)*(x*xb*-4.0-x*xc*4.0+xb*xc*2.0-yb*yc*2.0-diff*diff+(x*x)*4.0+xb*xb+xc*xc+yb*yb+yc*yc))+(diff*diff)*yb+(diff*diff)*yc-(xb*xb)*yb+(xb*xb)*yc+(xc*xc)*yb-(xc*xc)*yc+yb*(yc*yc)+(yb*yb)*yc-yb*yb*yb-yc*yc*yc+x*xb*yb*2.0-x*xb*yc*2.0-x*xc*yb*2.0+x*xc*yc*2.0)/(yb*yc*4.0+(diff*diff)*2.0-(yb*yb)*2.0-(yc*yc)*2.0);
         double y2 = (-diff*sqrt((xb*xc*-2.0-yb*yc*2.0-diff*diff+xb*xb+xc*xc+yb*yb+yc*yc)*(x*xb*-4.0-x*xc*4.0+xb*xc*2.0-yb*yc*2.0-diff*diff+(x*x)*4.0+xb*xb+xc*xc+yb*yb+yc*yc))+(diff*diff)*yb+(diff*diff)*yc-(xb*xb)*yb+(xb*xb)*yc+(xc*xc)*yb-(xc*xc)*yc+yb*(yc*yc)+(yb*yb)*yc-yb*yb*yb-yc*yc*yc+x*xb*yb*2.0-x*xb*yc*2.0-x*xc*yb*2.0+x*xc*yc*2.0)/(yb*yc*4.0+(diff*diff)*2.0-(yb*yb)*2.0-(yc*yc)*2.0);
 
-        if(sea[1].contains(y1)) fig_map.draw_point(Point(x,y1), color);
-        if(sea[1].contains(y2)) fig_map.draw_point(Point(x,y2), color);
+        if(sea[1].contains(y1)){
+            v_x1.push_back(x);
+            v_y1.push_back(y1);
+        }
+        if(sea[1].contains(y2)){
+            v_x2.push_back(x);
+            v_y2.push_back(y2);
+        }
     }
+
+    fig_map.draw_line(v_x1, v_y1, color);
+    fig_map.draw_line(v_x2, v_y2, color);
+
 }
 
-void SoundSimulation::draw_map(tubex::VIBesFigMap& fig_map){
+void SoundSimulation::draw_map(codac::VIBesFigMap& fig_map){
 
     fig_map.draw_box(sea, "[#e6e6e655]");
     fig_map.draw_vehicle({position_receiver[0],position_receiver[1],M_PI}, 0.8);
@@ -228,7 +243,7 @@ void SoundSimulation::draw_map(tubex::VIBesFigMap& fig_map){
 
 }
 
-void SoundSimulation::draw_signals(tubex::VIBesFigTube& fig_signals){
+void SoundSimulation::draw_signals(codac::VIBesFigTube& fig_signals){
     fig_signals.add_trajectory(&e_, "e", "#AF0800");
     fig_signals.add_trajectories(&v_r_att, "e", "blue");
     fig_signals.add_tube(&y, "y", "[magenta]");

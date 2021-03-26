@@ -7,7 +7,7 @@
 
 # Adding IBEX
 
-  # In case you installed IBEX in a local directory, you need 
+  # In case you installed IBEX in a local directory, you need
   # to specify its path with the CMAKE_PREFIX_PATH option.
   # set(CMAKE_PREFIX_PATH "~/ibex-lib/build_install")
 
@@ -15,11 +15,20 @@
   ibex_init_common() # IBEX should have installed this function
   message(STATUS "Found IBEX version ${IBEX_VERSION}")
 
+# Adding Eigen3
+
+  # In case you installed Eigen3 in a local directory, you need
+  # to specify its path with the CMAKE_PREFIX_PATH option, e.g.
+  # set(CMAKE_PREFIX_PATH "~/eigen/build_install")
+
+  find_package(Eigen3 REQUIRED NO_MODULE)
+  message(STATUS "Found Eigen3 version ${EIGEN3_VERSION}")
+
 # Adding Codac
 
   # In case you installed Codac in a local directory, you need
   # to specify its path with the CMAKE_PREFIX_PATH option.
-  #  set(CMAKE_PREFIX_PATH "~/codac-install")
+  # set(CMAKE_PREFIX_PATH "~/codac/build_install")
 
   find_package(CODAC REQUIRED)
   message(STATUS "Found Codac version ${CODAC_VERSION}")

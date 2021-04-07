@@ -14,6 +14,8 @@ using namespace ibex;
 int main()
 {
 
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
     // Sampling time of the signal
     double dt = 0.2;
 
@@ -86,8 +88,11 @@ int main()
     // bisection width of sivia for the localization
     double sivia_precision_localization = 0.2;
 
+    std::chrono::steady_clock::time_point begin_localization = std::chrono::steady_clock::now();
     TdoaLocalizationPaving pav(sea); // paver
     pav.compute(pa, sea[1], Interval(velocity), sivia_precision_localization, fig_map, subpaving_tdoa, tdoa, use_tdoa_subpaving_for_paving);
+    std::chrono::steady_clock::time_point end_localization = std::chrono::steady_clock::now();
+    std::cout << "Time for TDOA localization = " << std::chrono::duration_cast<std::chrono::milliseconds>(end_localization - begin_localization).count() << "[ms]" << std::endl;
 
     std::vector<ConnectedSubset> subsets = pav.get_connected_subsets();
     for (size_t i = 0; i < subsets.size(); ++i) {
@@ -98,6 +103,9 @@ int main()
         }
         cout << "subset " << i << ": " << area_covered << "m²" << endl;
     }
+
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Total computation time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 
     vibes::endDrawing();
     return EXIT_SUCCESS;
